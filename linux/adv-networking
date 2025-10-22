@@ -1,0 +1,117 @@
+## 🌐 Network Configuration & Management
+
+### 🧱 Interface Management
+| Command | Description |
+|----------|--------------|
+| `ip link show` | List all network interfaces |
+| `ip addr show` | Display assigned IP addresses |
+| `ip link set eth0 up` | Bring an interface up |
+| `ip link set eth0 down` | Bring an interface down |
+| `ip addr add 192.168.1.100/24 dev eth0` | Assign static IP address |
+| `ip addr del 192.168.1.100/24 dev eth0` | Remove an IP address |
+| `ip link set dev eth0 mtu 1400` | Change MTU size |
+| `ethtool eth0` | Display NIC capabilities and settings |
+| `ethtool -s eth0 speed 100 duplex full` | Change interface speed/duplex |
+| `nmcli device status` | List interfaces managed by NetworkManager |
+| `nmcli con show` | List saved connections |
+| `nmcli con up <name>` | Bring up a NetworkManager connection |
+| `nmcli dev wifi list` | Scan available Wi-Fi networks |
+| `nmcli dev wifi connect <SSID> password <pass>` | Connect to Wi-Fi |
+| `systemctl restart NetworkManager` | Restart the NetworkManager service |
+
+---
+
+### 🧭 IP Configuration & Routing
+| Command | Description |
+|----------|--------------|
+| `ip route show` | Display routing table |
+| `ip route add 192.168.2.0/24 via 192.168.1.1` | Add a route |
+| `ip route del 192.168.2.0/24` | Remove a route |
+| `ip route replace default via 192.168.1.254` | Set a new default gateway |
+| `route -n` | Legacy routing table view |
+| `ss -tulwn` | Show listening ports (modern replacement for `netstat`) |
+| `arp -n` | Show ARP cache |
+| `ip neigh` | Show or manipulate neighbor table (ARP/NDP) |
+| `ip link show type bridge` | Display network bridges |
+| `bridge link` | Show bridge interfaces and ports |
+
+---
+
+### 🌍 DNS, Hostnames & Resolution
+| Command | Description |
+|----------|--------------|
+| `cat /etc/resolv.conf` | View DNS configuration |
+| `resolvectl status` | Show systemd-resolved status |
+| `resolvectl query example.com` | Test DNS resolution |
+| `hostnamectl set-hostname newhost` | Set or change hostname |
+| `ping -c 4 example.com` | Basic connectivity check |
+| `dig example.com +short` | DNS lookup |
+| `nslookup example.com` | Alternate DNS lookup |
+| `getent hosts example.com` | Check name resolution order |
+
+---
+
+### ⚡ Advanced Networking (Bonding, VLANs, and Tunnels)
+| Command | Description |
+|----------|--------------|
+| `ip link add link eth0 name eth0.100 type vlan id 100` | Create VLAN interface |
+| `ip link set dev eth0.100 up` | Bring VLAN up |
+| `cat /proc/net/vlan/config` | View VLAN configuration |
+| `ip link add bond0 type bond` | Create bonded interface |
+| `echo +eth0 > /sys/class/net/bond0/bonding/slaves` | Add interface to bond |
+| `cat /proc/net/bonding/bond0` | Display bond status |
+| `ip tunnel add tun0 mode gre remote 10.0.0.2 local 10.0.0.1 ttl 255` | Create GRE tunnel |
+| `ip addr add 192.168.100.1/24 dev tun0` | Assign IP to tunnel |
+| `ip link set tun0 up` | Activate tunnel |
+| `ip link add dummy0 type dummy` | Create dummy (virtual) interface |
+| `ip link del dummy0` | Delete dummy interface |
+
+---
+
+### 🧩 DHCP & Static Configuration
+| Command | Description |
+|----------|--------------|
+| `dhclient -v eth0` | Request IP via DHCP |
+| `systemctl restart systemd-networkd` | Restart networkd after config change |
+| `/etc/netplan/*.yaml` | Netplan configuration files (Ubuntu) |
+| Example static netplan config: |
+| ```yaml
+  network:
+    version: 2
+    ethernets:
+      eth0:
+        dhcp4: no
+        addresses: [192.168.1.10/24]
+        gateway4: 192.168.1.1
+        nameservers:
+          addresses: [8.8.8.8, 1.1.1.1]
+  ``` |
+| `sudo netplan apply` | Apply netplan changes |
+
+---
+
+### 🧠 Network Diagnostics & Troubleshooting
+| Command | Description |
+|----------|--------------|
+| `ping -c 5 8.8.8.8` | Test connectivity to IP |
+| `ping -c 5 example.com` | Test DNS and connectivity |
+| `traceroute example.com` | Trace packet path |
+| `mtr example.com` | Real-time network path + latency monitor |
+| `curl -I https://example.com` | Check HTTP response headers |
+| `ss -tp` | Show active TCP connections |
+| `lsof -i :80` | See which process uses port 80 |
+| `tcpdump -i eth0 port 22` | Capture SSH traffic |
+| `nmap -p 22,80,443 <host>` | Scan open ports |
+| `iftop -i eth0` | Show bandwidth per connection |
+| `nload` | Real-time traffic monitor |
+| `vnstat -l` | Monitor traffic per interface |
+| `ip -s link` | View interface traffic counters |
+| `netstat -rn` | Legacy routing + connection info |
+
+---
+
+💡 **Pro Tips:**
+- Use `nmcli connection reload` to apply config changes without restarting NetworkManager.  
+- For servers, disable `NetworkManager` and use `systemd-networkd` for predictable interface control.  
+- Combine `tcpdump` with `grep` or `awk` for live traffic filtering.  
+- `ip` replaces legacy `ifconfig`, `route`, and `arp` — master it.  
