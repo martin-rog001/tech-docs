@@ -1,0 +1,74 @@
+---
+# Ansible Roles Structure Example
+# This demonstrates how to organize playbooks with roles
+
+# Typical directory structure for roles:
+# roles/
+#   common/
+#     tasks/
+#       main.yml
+#     handlers/
+#       main.yml
+#     templates/
+#       config.j2
+#     files/
+#       script.sh
+#     vars/
+#       main.yml
+#     defaults/
+#       main.yml
+#     meta/
+#       main.yml
+
+- name: Playbook using roles
+  hosts: localhost
+  connection: local
+
+  # Pre-tasks run before roles
+  pre_tasks:
+    - name: Update package cache (if needed)
+      debug:
+        msg: "Running pre-tasks"
+
+  # Roles to apply
+  roles:
+    - role: common
+      vars:
+        role_var: "custom_value"
+
+  # Tasks run after roles
+  tasks:
+    - name: Additional task after roles
+      debug:
+        msg: "Running post-role tasks"
+
+  # Handlers
+  handlers:
+    - name: restart service
+      debug:
+        msg: "Service would be restarted here"
+
+# Example of tasks/main.yml for a role:
+# ---
+# - name: Install packages
+#   debug:
+#     msg: "Installing {{ item }}"
+#   loop: "{{ packages }}"
+#
+# - name: Configure application
+#   template:
+#     src: config.j2
+#     dest: /etc/app/config.conf
+#   notify: restart service
+#
+# - name: Ensure service is running
+#   debug:
+#     msg: "Service would be started here"
+
+# Example of defaults/main.yml:
+# ---
+# packages:
+#   - package1
+#   - package2
+# service_port: 8080
+# enable_monitoring: true

@@ -1,0 +1,176 @@
+# Kubernetes ConfigMap - Essential Syntax Reference
+apiVersion: v1
+kind: ConfigMap
+
+metadata:
+  name: app-config
+  namespace: production
+  labels:
+    app: web-app
+
+# Simple key-value pairs
+data:
+  # Simple values
+  app.name: "My Web Application"
+  app.port: "3000"
+  log.level: "info"
+  database.host: "db-service"
+  database.port: "5432"
+
+  # Multi-line configuration
+  nginx.conf: |
+    server {
+      listen 80;
+      server_name localhost;
+
+      location / {
+        proxy_pass http://backend:3000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+      }
+    }
+
+  # JSON configuration
+  config.json: |
+    {
+      "server": {
+        "port": 3000,
+        "host": "0.0.0.0"
+      },
+      "database": {
+        "host": "db-service",
+        "port": 5432,
+        "name": "myapp"
+      },
+      "features": {
+        "enableAuth": true,
+        "enableCache": true
+      }
+    }
+
+  # YAML configuration
+  application.yaml: |
+    server:
+      port: 3000
+      host: 0.0.0.0
+    database:
+      host: db-service
+      port: 5432
+      name: myapp
+    logging:
+      level: info
+      format: json
+
+  # Environment variables format
+  app.env: |
+    NODE_ENV=production
+    APP_PORT=3000
+    LOG_LEVEL=info
+    ENABLE_METRICS=true
+
+# Binary data (base64 encoded)
+binaryData:
+  # Example: echo "binary content" | base64
+  cert.pem: LS0tLS1CRUdJTi...
+
+---
+# ConfigMap from literal values
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-env-config
+data:
+  DATABASE_URL: "postgresql://user@db-service:5432/mydb"
+  REDIS_URL: "redis://redis-service:6379"
+  API_KEY: "non-sensitive-key"
+
+---
+# ConfigMap for application properties
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-properties
+data:
+  application.properties: |
+    # Database Configuration
+    spring.datasource.url=jdbc:postgresql://db-service:5432/mydb
+    spring.datasource.driver-class-name=org.postgresql.Driver
+
+    # Server Configuration
+    server.port=8080
+    server.servlet.context-path=/api
+
+    # Logging
+    logging.level.root=INFO
+    logging.level.com.example=DEBUG
+
+---
+# ConfigMap for scripts
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: init-scripts
+data:
+  init.sh: |
+    #!/bin/bash
+    echo "Initializing application..."
+
+    # Wait for database
+    until pg_isready -h db-service -p 5432; do
+      echo "Waiting for database..."
+      sleep 2
+    done
+
+    echo "Database is ready!"
+
+    # Run migrations
+    npm run migrate
+
+    echo "Initialization complete!"
+
+  backup.sh: |
+    #!/bin/bash
+    DATE=$(date +%Y%m%d_%H%M%S)
+    pg_dump -h db-service -U user mydb > /backup/backup_${DATE}.sql
+    echo "Backup completed: backup_${DATE}.sql"
+
+---
+# Usage Examples in Pods:
+
+# 1. As environment variables
+# env:
+#   - name: APP_NAME
+#     valueFrom:
+#       configMapKeyRef:
+#         name: app-config
+#         key: app.name
+
+# 2. All keys as environment variables
+# envFrom:
+#   - configMapRef:
+#       name: app-env-config
+
+# 3. As volume mount
+# volumes:
+#   - name: config
+#     configMap:
+#       name: app-config
+#       items:
+#         - key: nginx.conf
+#           path: nginx.conf
+#
+# volumeMounts:
+#   - name: config
+#     mountPath: /etc/nginx/nginx.conf
+#     subPath: nginx.conf
+#     readOnly: true
+
+# 4. Entire ConfigMap as volume
+# volumes:
+#   - name: config-volume
+#     configMap:
+#       name: app-config
+#
+# volumeMounts:
+#   - name: config-volume
+#     mountPath: /etc/config

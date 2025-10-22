@@ -1,0 +1,37 @@
+---
+# List all EC2 Instances
+# Run with: ansible-playbook list-instances.yml
+
+- name: List EC2 Instances
+  hosts: localhost
+  connection: local
+  gather_facts: no
+
+  vars:
+    aws_region: "us-east-1"
+
+  tasks:
+    - name: Get all EC2 instances
+      amazon.aws.ec2_instance_info:
+        region: "{{ aws_region }}"
+        filters:
+          instance-state-name: ["running", "stopped", "pending"]
+      register: ec2_info
+
+    - name: Display instance count
+      debug:
+        msg: "Found {{ ec2_info.instances | length }} instance(s)"
+
+    - name: Display instance details
+      debug:
+        msg:
+          - "Name: {{ item.tags.Name | default('N/A') }}"
+          - "Instance ID: {{ item.instance_id }}"
+          - "Type: {{ item.instance_type }}"
+          - "State: {{ item.state.name }}"
+          - "Public IP: {{ item.public_ip_address | default('N/A') }}"
+          - "Private IP: {{ item.private_ip_address }}"
+          - "Launch Time: {{ item.launch_time }}"
+          - "---"
+      loop: "{{ ec2_info.instances }}"
+      when: ec2_info.instances | length > 0

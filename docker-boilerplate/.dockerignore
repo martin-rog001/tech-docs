@@ -1,0 +1,73 @@
+# .dockerignore - Files to exclude from Docker build context
+
+# Version control
+.git
+.gitignore
+.gitattributes
+
+# Dependencies
+node_modules/
+npm-debug.log
+yarn-error.log
+package-lock.json
+yarn.lock
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+pip-log.txt
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing
+coverage/
+.coverage
+*.coveragerc
+.pytest_cache/
+test/
+tests/
+*.test.js
+
+# Documentation
+README.md
+CHANGELOG.md
+LICENSE
+docs/
+
+# Docker files
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# Logs
+logs/
+*.log
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Build outputs
+dist/
+build/
+target/
+*.tar.gz
+*.zip
+
+# Temporary files
+tmp/
+temp/
+*.tmp

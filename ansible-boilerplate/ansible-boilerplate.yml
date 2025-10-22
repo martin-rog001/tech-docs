@@ -1,0 +1,300 @@
+---
+# Ansible Boilerplate - Essential Syntax Reference
+# Run with: ansible-playbook ansible-boilerplate.yml
+
+# Playbook structure
+- name: Ansible Boilerplate Playbook
+  hosts: localhost
+  connection: local
+  gather_facts: yes
+
+  # Variables
+  vars:
+    app_name: "Ansible Boilerplate"
+    version: "1.0.0"
+    user_name: "demo_user"
+    app_port: 8080
+    env: "development"
+
+    # List variable
+    packages_to_install:
+      - git
+      - curl
+      - vim
+
+    # Dictionary variable
+    app_config:
+      host: "localhost"
+      port: 8080
+      debug: true
+      max_connections: 100
+
+  # Tasks section
+  tasks:
+    - name: Display playbook info
+      debug:
+        msg: "Starting {{ app_name }} v{{ version }}"
+
+    # =====================
+    # Variables and Facts
+    # =====================
+    - name: Display gathered facts
+      debug:
+        msg: |
+          OS Family: {{ ansible_os_family }}
+          Distribution: {{ ansible_distribution }}
+          Hostname: {{ ansible_hostname }}
+          Python Version: {{ ansible_python_version }}
+
+    - name: Set a fact (runtime variable)
+      set_fact:
+        custom_message: "This is a custom fact"
+        timestamp: "{{ ansible_date_time.iso8601 }}"
+
+    - name: Display custom fact
+      debug:
+        var: custom_message
+
+    # =====================
+    # Conditionals
+    # =====================
+    - name: Conditional - simple if
+      debug:
+        msg: "Environment is development"
+      when: env == "development"
+
+    - name: Conditional - with multiple conditions (AND)
+      debug:
+        msg: "Port is 8080 and env is development"
+      when:
+        - app_port == 8080
+        - env == "development"
+
+    - name: Conditional - OR condition
+      debug:
+        msg: "Environment is dev or staging"
+      when: env == "development" or env == "staging"
+
+    - name: Conditional - based on fact
+      debug:
+        msg: "Running on a Debian-based system"
+      when: ansible_os_family == "Debian"
+
+    - name: Conditional - check if variable is defined
+      debug:
+        msg: "User name is defined: {{ user_name }}"
+      when: user_name is defined
+
+    # =====================
+    # Loops
+    # =====================
+    - name: Loop - simple list iteration
+      debug:
+        msg: "Package: {{ item }}"
+      loop: "{{ packages_to_install }}"
+
+    - name: Loop - with index
+      debug:
+        msg: "Item {{ ansible_loop.index }}: {{ item }}"
+      loop:
+        - apple
+        - banana
+        - cherry
+      loop_control:
+        extended: yes
+
+    - name: Loop - over dictionary
+      debug:
+        msg: "Config {{ item.key }}: {{ item.value }}"
+      loop: "{{ app_config | dict2items }}"
+
+    - name: Loop - with range
+      debug:
+        msg: "Count: {{ item }}"
+      loop: "{{ range(0, 5) | list }}"
+
+    - name: Loop - nested lists
+      debug:
+        msg: "User {{ item.0 }} has role {{ item.1 }}"
+      loop:
+        - ['alice', 'admin']
+        - ['bob', 'user']
+        - ['charlie', 'developer']
+
+    # =====================
+    # File Operations
+    # =====================
+    - name: Create a directory
+      file:
+        path: "/tmp/ansible_demo"
+        state: directory
+        mode: '0755'
+
+    - name: Create a file with content
+      copy:
+        content: |
+          Hello from Ansible!
+          Generated at {{ ansible_date_time.iso8601 }}
+          Environment: {{ env }}
+        dest: "/tmp/ansible_demo/demo.txt"
+        mode: '0644'
+
+    - name: Create file from template (inline)
+      copy:
+        content: |
+          Application: {{ app_name }}
+          Version: {{ version }}
+          Port: {{ app_port }}
+
+          Packages:
+          {% for pkg in packages_to_install %}
+          - {{ pkg }}
+          {% endfor %}
+        dest: "/tmp/ansible_demo/config.txt"
+
+    - name: Check if file exists
+      stat:
+        path: "/tmp/ansible_demo/demo.txt"
+      register: file_stat
+
+    - name: Display file stat
+      debug:
+        msg: "File exists: {{ file_stat.stat.exists }}"
+
+    - name: Read file content
+      slurp:
+        path: "/tmp/ansible_demo/demo.txt"
+      register: file_content
+
+    - name: Display file content
+      debug:
+        msg: "{{ file_content.content | b64decode }}"
+
+    # =====================
+    # Command Execution
+    # =====================
+    - name: Run a simple command
+      command: echo "Hello from command module"
+      register: command_output
+
+    - name: Display command output
+      debug:
+        var: command_output.stdout
+
+    - name: Run shell command with pipes
+      shell: echo "Testing" | tr '[:lower:]' '[:upper:]'
+      register: shell_output
+
+    - name: Display shell output
+      debug:
+        msg: "Shell output: {{ shell_output.stdout }}"
+
+    - name: Get current date using command
+      command: date +%Y-%m-%d
+      register: current_date
+
+    - name: Display current date
+      debug:
+        msg: "Today is {{ current_date.stdout }}"
+
+    # =====================
+    # Filters and Transformations
+    # =====================
+    - name: String manipulation filters
+      debug:
+        msg: |
+          Original: {{ app_name }}
+          Upper: {{ app_name | upper }}
+          Lower: {{ app_name | lower }}
+          Replace: {{ app_name | replace('Boilerplate', 'Demo') }}
+          Length: {{ app_name | length }}
+
+    - name: List filters
+      debug:
+        msg: |
+          First: {{ packages_to_install | first }}
+          Last: {{ packages_to_install | last }}
+          Length: {{ packages_to_install | length }}
+          Joined: {{ packages_to_install | join(', ') }}
+
+    - name: Number filters
+      debug:
+        msg: |
+          Port: {{ app_port }}
+          Port + 10: {{ app_port + 10 }}
+          Port * 2: {{ app_port * 2 }}
+
+    - name: Default filter (for undefined variables)
+      debug:
+        msg: "Value: {{ undefined_var | default('default_value') }}"
+
+    # =====================
+    # Register and Error Handling
+    # =====================
+    - name: Task that might fail
+      command: /bin/true
+      register: task_result
+      ignore_errors: yes
+
+    - name: Check task result
+      debug:
+        msg: "Task {{ 'succeeded' if task_result.rc == 0 else 'failed' }}"
+
+    - name: Task with changed_when
+      command: echo "This won't show as changed"
+      changed_when: false
+
+    - name: Task with failed_when
+      command: echo "test"
+      register: test_output
+      failed_when: "'fail' in test_output.stdout"
+
+    # =====================
+    # Block and Rescue (Error Handling)
+    # =====================
+    - name: Block with rescue and always
+      block:
+        - name: Task in block
+          debug:
+            msg: "Executing block task"
+
+        - name: This might fail
+          command: /bin/true
+
+      rescue:
+        - name: Task in rescue (runs on failure)
+          debug:
+            msg: "Something went wrong, running rescue"
+
+      always:
+        - name: Task in always (always runs)
+          debug:
+            msg: "This always runs regardless of success or failure"
+
+    # =====================
+    # Cleanup
+    # =====================
+    - name: Clean up - remove demo directory
+      file:
+        path: "/tmp/ansible_demo"
+        state: absent
+
+    - name: Final message
+      debug:
+        msg: "=== Playbook completed at {{ ansible_date_time.iso8601 }} ==="
+
+# =====================
+# Multiple Plays
+# =====================
+- name: Second Play Example
+  hosts: localhost
+  connection: local
+  gather_facts: no
+
+  vars:
+    play_number: 2
+
+  tasks:
+    - name: Message from second play
+      debug:
+        msg: "This is play number {{ play_number }}"

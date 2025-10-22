@@ -1,0 +1,28 @@
+# Example Variables File
+# Copy this to vars.yml and customize
+
+# AWS Configuration
+aws_region: "us-east-1"
+aws_access_key: "YOUR_ACCESS_KEY"  # Better to use AWS CLI credentials
+aws_secret_key: "YOUR_SECRET_KEY"  # Better to use AWS CLI credentials
+
+# SSH Key Pair
+key_name: "my-key-pair"
+
+# EC2 Instance
+instance_name: "web-server"
+instance_type: "t2.micro"  # t2.micro, t2.small, t2.medium, etc.
+
+# AMI IDs (Ubuntu 20.04 LTS - update based on region)
+# us-east-1: ami-0c55b159cbfafe1f0
+# us-west-2: ami-0d1cd67c26f5fca19
+# eu-west-1: ami-0dad359ff462124ca
+ami_id: "ami-0c55b159cbfafe1f0"
+
+# Security Group
+security_group_name: "web-server-sg"
+security_group_description: "Security group for web server"
+
+# Tags
+environment: "development"
+project: "my-project"

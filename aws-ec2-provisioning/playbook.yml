@@ -1,0 +1,157 @@
+---
+# AWS EC2 Instance Provisioning with Ansible
+# Run with: ansible-playbook playbook.yml
+
+- name: Provision EC2 Instance
+  hosts: localhost
+  connection: local
+  gather_facts: no
+
+  vars:
+    # AWS Configuration
+    aws_region: "us-east-1"
+    key_name: "my-key-pair"  # Your AWS key pair name
+
+    # EC2 Instance Configuration
+    instance_name: "web-server"
+    instance_type: "t2.micro"
+    ami_id: "ami-0c55b159cbfafe1f0"  # Ubuntu 20.04 LTS (update for your region)
+
+    # Security Group
+    security_group_name: "web-server-sg"
+    security_group_description: "Security group for web server"
+
+    # VPC (optional - uses default if not specified)
+    # vpc_id: "vpc-xxxxxx"
+
+    # Tags
+    environment: "development"
+    project: "my-project"
+
+  tasks:
+    # =====================
+    # Security Group
+    # =====================
+    - name: Create security group
+      amazon.aws.ec2_security_group:
+        name: "{{ security_group_name }}"
+        description: "{{ security_group_description }}"
+        region: "{{ aws_region }}"
+        rules:
+          # SSH access
+          - proto: tcp
+            ports: 22
+            cidr_ip: 0.0.0.0/0
+            rule_desc: "SSH access"
+
+          # HTTP access
+          - proto: tcp
+            ports: 80
+            cidr_ip: 0.0.0.0/0
+            rule_desc: "HTTP access"
+
+          # HTTPS access
+          - proto: tcp
+            ports: 443
+            cidr_ip: 0.0.0.0/0
+            rule_desc: "HTTPS access"
+
+        rules_egress:
+          # Allow all outbound traffic
+          - proto: all
+            cidr_ip: 0.0.0.0/0
+
+        tags:
+          Name: "{{ security_group_name }}"
+          Environment: "{{ environment }}"
+      register: security_group
+
+    # =====================
+    # Launch EC2 Instance
+    # =====================
+    - name: Launch EC2 instance
+      amazon.aws.ec2_instance:
+        name: "{{ instance_name }}"
+        region: "{{ aws_region }}"
+        key_name: "{{ key_name }}"
+        instance_type: "{{ instance_type }}"
+        image_id: "{{ ami_id }}"
+        security_group: "{{ security_group_name }}"
+        wait: yes
+        wait_timeout: 300
+
+        # Storage
+        volumes:
+          - device_name: /dev/sda1
+            ebs:
+              volume_size: 20
+              volume_type: gp3
+              delete_on_termination: true
+
+        # User data script (runs on first boot)
+        user_data: |
+          #!/bin/bash
+          apt-get update
+          apt-get install -y nginx
+          systemctl start nginx
+          systemctl enable nginx
+          echo "<h1>Instance provisioned with Ansible</h1>" > /var/www/html/index.html
+
+        # Tags
+        tags:
+          Name: "{{ instance_name }}"
+          Environment: "{{ environment }}"
+          Project: "{{ project }}"
+          ManagedBy: "Ansible"
+
+        # Detailed monitoring
+        detailed_monitoring: false
+
+      register: ec2_instance
+
+    # =====================
+    # Display Instance Information
+    # =====================
+    - name: Display instance information
+      debug:
+        msg:
+          - "EC2 Instance created successfully!"
+          - "Instance ID: {{ ec2_instance.instances[0].instance_id }}"
+          - "Instance Type: {{ ec2_instance.instances[0].instance_type }}"
+          - "Public IP: {{ ec2_instance.instances[0].public_ip_address }}"
+          - "Private IP: {{ ec2_instance.instances[0].private_ip_address }}"
+          - "State: {{ ec2_instance.instances[0].state.name }}"
+          - "SSH Command: ssh -i ~/.ssh/{{ key_name }}.pem ubuntu@{{ ec2_instance.instances[0].public_ip_address }}"
+
+    # =====================
+    # Save Instance Info to File
+    # =====================
+    - name: Save instance details to file
+      copy:
+        content: |
+          EC2 Instance Details
+          ====================
+          Instance ID: {{ ec2_instance.instances[0].instance_id }}
+          Instance Type: {{ ec2_instance.instances[0].instance_type }}
+          Public IP: {{ ec2_instance.instances[0].public_ip_address }}
+          Private IP: {{ ec2_instance.instances[0].private_ip_address }}
+          State: {{ ec2_instance.instances[0].state.name }}
+          Region: {{ aws_region }}
+          Key Name: {{ key_name }}
+
+          SSH Access:
+          ssh -i ~/.ssh/{{ key_name }}.pem ubuntu@{{ ec2_instance.instances[0].public_ip_address }}
+
+          HTTP Access:
+          http://{{ ec2_instance.instances[0].public_ip_address }}
+        dest: "./instance-info.txt"
+
+    - name: Create dynamic inventory file
+      copy:
+        content: |
+          [ec2_instances]
+          {{ ec2_instance.instances[0].public_ip_address }} ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/{{ key_name }}.pem
+
+          [ec2_instances:vars]
+          ansible_python_interpreter=/usr/bin/python3
+        dest: "./ec2-inventory.ini"

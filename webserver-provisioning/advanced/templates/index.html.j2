@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ server_name }} - Web Server</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 2em;
+        }
+        .status {
+            background: #10b981;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            display: inline-block;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+        .info {
+            background: #f3f4f6;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .info-item:last-child {
+            border-bottom: none;
+        }
+        .label {
+            font-weight: bold;
+            color: #6b7280;
+        }
+        .value {
+            color: #111827;
+        }
+        .footer {
+            margin-top: 30px;
+            text-align: center;
+            color: #6b7280;
+            font-size: 0.9em;
+        }
+        a {
+            color: #667eea;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Web Server Active</h1>
+        <div class="status">✓ Server is running</div>
+
+        <div class="info">
+            <div class="info-item">
+                <span class="label">Server Name:</span>
+                <span class="value">{{ server_name }}</span>
+            </div>
+            <div class="info-item">
+                <span class="label">Provisioned:</span>
+                <span class="value">{{ ansible_date_time.date }}</span>
+            </div>
+            <div class="info-item">
+                <span class="label">OS:</span>
+                <span class="value">{{ ansible_distribution }} {{ ansible_distribution_version }}</span>
+            </div>
+            <div class="info-item">
+                <span class="label">Server IP:</span>
+                <span class="value">{{ ansible_default_ipv4.address }}</span>
+            </div>
+            <div class="info-item">
+                <span class="label">SSL Enabled:</span>
+                <span class="value">{{ 'Yes' if enable_ssl else 'No' }}</span>
+            </div>
+            {% if enable_php %}
+            <div class="info-item">
+                <span class="label">PHP Version:</span>
+                <span class="value">{{ php_version }}</span>
+            </div>
+            {% endif %}
+            {% if enable_nodejs %}
+            <div class="info-item">
+                <span class="label">Node.js:</span>
+                <span class="value">Enabled</span>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="footer">
+            <p>Provisioned with Ansible</p>
+            {% if enable_php %}
+            <p><a href="/info.php">View PHP Info</a></p>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>

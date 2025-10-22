@@ -1,0 +1,273 @@
+# Docker Compose Boilerplate - Essential Syntax Reference
+# Run with: docker-compose up
+# Stop with: docker-compose down
+
+version: '3.8'
+
+# ====================
+# Services
+# ====================
+services:
+  # Web application service
+  web:
+    # Build from Dockerfile
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        BUILD_VERSION: "1.0.0"
+        BUILD_DATE: "2024-01-01"
+
+    # Or use pre-built image
+    # image: nginx:alpine
+
+    # Container name
+    container_name: web_app
+
+    # Restart policy
+    restart: unless-stopped
+    # Options: no, always, on-failure, unless-stopped
+
+    # Environment variables
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://user:password@db:5432/mydb
+      - REDIS_URL=redis://redis:6379
+      - API_KEY=${API_KEY}  # From .env file
+
+    # Alternative environment file
+    env_file:
+      - .env
+      - .env.local
+
+    # Ports (HOST:CONTAINER)
+    ports:
+      - "3000:3000"
+      - "8080:8080"
+
+    # Volumes
+    volumes:
+      # Named volume
+      - app_data:/app/data
+
+      # Bind mount (local path:container path)
+      - ./src:/app/src
+
+      # Read-only mount
+      - ./config:/app/config:ro
+
+      # Anonymous volume
+      - /app/node_modules
+
+    # Networks
+    networks:
+      - frontend
+      - backend
+
+    # Dependencies
+    depends_on:
+      - db
+      - redis
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    # Command override
+    command: npm run dev
+
+    # Working directory
+    working_dir: /app
+
+    # User
+    user: "1000:1000"
+
+    # Expose ports (documentation only)
+    expose:
+      - "3000"
+
+
+  # Database service
+  db:
+    image: postgres:15-alpine
+    container_name: postgres_db
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_USER: dbuser
+      POSTGRES_PASSWORD: dbpassword
+      POSTGRES_DB: mydb
+
+    ports:
+      - "5432:5432"
+
+    volumes:
+      # Persistent database storage
+      - postgres_data:/var/lib/postgresql/data
+
+      # Initialization scripts
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+
+    networks:
+      - backend
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dbuser"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+
+  # Redis cache service
+  redis:
+    image: redis:7-alpine
+    container_name: redis_cache
+    restart: unless-stopped
+
+    ports:
+      - "6379:6379"
+
+    volumes:
+      - redis_data:/data
+
+    networks:
+      - backend
+
+    command: redis-server --appendonly yes
+
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+
+  # Nginx reverse proxy
+  nginx:
+    image: nginx:alpine
+    container_name: nginx_proxy
+    restart: unless-stopped
+
+    ports:
+      - "80:80"
+      - "443:443"
+
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+
+    networks:
+      - frontend
+
+    depends_on:
+      - web
+
+
+  # Worker service (example)
+  worker:
+    build: .
+    container_name: worker_service
+    restart: unless-stopped
+
+    environment:
+      - WORKER_TYPE=background_jobs
+
+    depends_on:
+      - redis
+      - db
+
+    networks:
+      - backend
+
+    command: npm run worker
+
+    # Scale this service
+    deploy:
+      replicas: 3
+
+
+# ====================
+# Networks
+# ====================
+networks:
+  frontend:
+    driver: bridge
+  backend:
+    driver: bridge
+    internal: true  # No external access
+
+  # Custom network with specific config
+  custom_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+
+# ====================
+# Volumes
+# ====================
+volumes:
+  app_data:
+  postgres_data:
+  redis_data:
+
+  # Named volume with driver options
+  custom_volume:
+    driver: local
+    driver_opts:
+      type: none
+      device: /path/on/host
+      o: bind
+
+
+# ====================
+# Common Docker Compose Commands
+# ====================
+
+# Start services:
+#   docker-compose up
+#   docker-compose up -d (detached mode)
+#   docker-compose up --build (rebuild images)
+
+# Stop services:
+#   docker-compose down
+#   docker-compose down -v (remove volumes)
+#   docker-compose stop
+
+# View logs:
+#   docker-compose logs
+#   docker-compose logs -f (follow)
+#   docker-compose logs web (specific service)
+
+# List running services:
+#   docker-compose ps
+
+# Execute command in service:
+#   docker-compose exec web sh
+#   docker-compose exec db psql -U dbuser
+
+# Scale services:
+#   docker-compose up -d --scale worker=5
+
+# Restart services:
+#   docker-compose restart
+#   docker-compose restart web
+
+# Build services:
+#   docker-compose build
+#   docker-compose build --no-cache

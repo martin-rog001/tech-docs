@@ -1,0 +1,38 @@
+---
+# Manage EC2 Instance (Start/Stop/Reboot)
+# Run with: ansible-playbook manage-instance.yml -e "action=stop"
+
+- name: Manage EC2 Instance
+  hosts: localhost
+  connection: local
+  gather_facts: no
+
+  vars:
+    aws_region: "us-east-1"
+    instance_name: "web-server"
+    action: "running"  # Options: running (start), stopped (stop), restarted (reboot)
+
+  tasks:
+    - name: Get instance information
+      amazon.aws.ec2_instance_info:
+        region: "{{ aws_region }}"
+        filters:
+          "tag:Name": "{{ instance_name }}"
+      register: ec2_info
+
+    - name: Fail if no instance found
+      fail:
+        msg: "No instance found with name {{ instance_name }}"
+      when: ec2_info.instances | length == 0
+
+    - name: Manage instance state
+      amazon.aws.ec2_instance:
+        instance_ids: "{{ item.instance_id }}"
+        region: "{{ aws_region }}"
+        state: "{{ action }}"
+        wait: yes
+      loop: "{{ ec2_info.instances }}"
+
+    - name: Display result
+      debug:
+        msg: "Instance {{ instance_name }} is now {{ action }}"

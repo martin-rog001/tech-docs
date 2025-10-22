@@ -1,0 +1,325 @@
+# Kubernetes StatefulSet - Essential Syntax Reference
+# Used for stateful applications like databases, message queues, etc.
+apiVersion: apps/v1
+kind: StatefulSet
+
+metadata:
+  name: mysql-cluster
+  namespace: production
+  labels:
+    app: mysql
+
+spec:
+  # Service name for stable network identity
+  serviceName: "mysql-headless"
+
+  # Number of replicas
+  replicas: 3
+
+  # Minimum ready seconds
+  minReadySeconds: 10
+
+  # Pod management policy
+  podManagementPolicy: OrderedReady
+  # Options: OrderedReady (default), Parallel
+
+  # Update strategy
+  updateStrategy:
+    type: RollingUpdate
+    # Options: RollingUpdate, OnDelete
+    rollingUpdate:
+      partition: 0  # Update pods with ordinal >= partition
+
+  # Revision history limit
+  revisionHistoryLimit: 10
+
+  # Selector
+  selector:
+    matchLabels:
+      app: mysql
+
+  # Pod template
+  template:
+    metadata:
+      labels:
+        app: mysql
+
+    spec:
+      # Init container for setup
+      initContainers:
+        - name: init-mysql
+          image: mysql:8.0
+          command:
+            - bash
+            - "-c"
+            - |
+              set -ex
+              # Generate mysql server-id from pod ordinal index
+              [[ $(hostname) =~ -([0-9]+)$ ]] || exit 1
+              ordinal=${BASH_REMATCH[1]}
+              echo [mysqld] > /mnt/conf.d/server-id.cnf
+              # Add offset to avoid reserved server-id=0
+              echo server-id=$((100 + $ordinal)) >> /mnt/conf.d/server-id.cnf
+          volumeMounts:
+            - name: conf
+              mountPath: /mnt/conf.d
+
+        - name: clone-mysql
+          image: gcr.io/google-samples/xtrabackup:1.0
+          command:
+            - bash
+            - "-c"
+            - |
+              set -ex
+              # Skip clone on first replica
+              [[ $(hostname) =~ -([0-9]+)$ ]] || exit 1
+              ordinal=${BASH_REMATCH[1]}
+              [[ $ordinal -eq 0 ]] && exit 0
+              # Clone data from previous peer
+              ncat --recv-only mysql-cluster-$(($ordinal-1)).mysql-headless 3307 | xbstream -x -C /var/lib/mysql
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+              subPath: mysql
+
+      # Main container
+      containers:
+        - name: mysql
+          image: mysql:8.0
+
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-secret
+                  key: root-password
+
+            # Pod identity
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+
+          ports:
+            - name: mysql
+              containerPort: 3306
+              protocol: TCP
+
+          # Volume mounts
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+              subPath: mysql
+
+            - name: conf
+              mountPath: /etc/mysql/conf.d
+
+          # Resources
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: 1000m
+              memory: 2Gi
+
+          # Liveness probe
+          livenessProbe:
+            exec:
+              command:
+                - mysqladmin
+                - ping
+                - -h
+                - localhost
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+
+          # Readiness probe
+          readinessProbe:
+            exec:
+              command:
+                - mysql
+                - -h
+                - "127.0.0.1"
+                - -e
+                - "SELECT 1"
+            initialDelaySeconds: 5
+            periodSeconds: 2
+            timeoutSeconds: 1
+
+        # Sidecar for backups
+        - name: xtrabackup
+          image: gcr.io/google-samples/xtrabackup:1.0
+          ports:
+            - name: xtrabackup
+              containerPort: 3307
+          command:
+            - bash
+            - "-c"
+            - |
+              set -ex
+              cd /var/lib/mysql
+              # Determine binlog position (if any)
+              if [[ -f xtrabackup_slave_info ]]; then
+                mv xtrabackup_slave_info change_master_to.sql.in
+              elif [[ -f xtrabackup_binlog_info ]]; then
+                [[ $(cat xtrabackup_binlog_info) =~ ^(.*?)[[:space:]]+(.*?)$ ]]
+              fi
+              # Start server to accept backup requests
+              ncat --listen --keep-open --send-only --max-conns=1 3307 -c \
+                "xtrabackup --backup --slave-info --stream=xbstream --host=127.0.0.1 --user=root"
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+              subPath: mysql
+
+          resources:
+            requests:
+              cpu: 100m
+              memory: 100Mi
+
+      # Volumes
+      volumes:
+        - name: conf
+          emptyDir: {}
+
+  # Volume claim templates (creates PVC for each pod)
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+        labels:
+          app: mysql
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: "fast-ssd"
+        resources:
+          requests:
+            storage: 10Gi
+
+---
+# Headless service for StatefulSet
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-headless
+  namespace: production
+  labels:
+    app: mysql
+spec:
+  clusterIP: None  # Headless service
+  selector:
+    app: mysql
+  ports:
+    - name: mysql
+      port: 3306
+      targetPort: 3306
+
+---
+# Regular service for client access
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-service
+  namespace: production
+spec:
+  selector:
+    app: mysql
+  ports:
+    - name: mysql
+      port: 3306
+      targetPort: 3306
+  type: ClusterIP
+
+---
+# Simple StatefulSet example (Redis)
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis
+spec:
+  serviceName: redis-headless
+  replicas: 3
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          ports:
+            - containerPort: 6379
+              name: redis
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          command:
+            - redis-server
+            - --appendonly
+            - "yes"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi
+
+---
+# StatefulSet with parallel pod management
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: parallel-example
+spec:
+  serviceName: parallel-svc
+  replicas: 5
+  podManagementPolicy: Parallel  # Start/stop pods in parallel
+  selector:
+    matchLabels:
+      app: parallel-app
+  template:
+    metadata:
+      labels:
+        app: parallel-app
+    spec:
+      containers:
+        - name: app
+          image: nginx:alpine
+          ports:
+            - containerPort: 80
+
+---
+# StatefulSet features explained:
+
+# 1. Stable network identity:
+#    - Pod names: <statefulset-name>-<ordinal> (mysql-0, mysql-1, mysql-2)
+#    - DNS: <pod-name>.<service-name>.<namespace>.svc.cluster.local
+#    - Example: mysql-0.mysql-headless.production.svc.cluster.local
+
+# 2. Ordered deployment and scaling:
+#    - Pods created in order: 0, 1, 2, ...
+#    - Pod 1 waits for pod 0 to be Running and Ready
+#    - Deleted in reverse order: N-1, N-2, ..., 0
+
+# 3. Persistent storage:
+#    - Each pod gets its own PVC from volumeClaimTemplates
+#    - PVCs are not deleted when StatefulSet is deleted
+#    - Same PVC reattached when pod is rescheduled
+
+# 4. Update strategy:
+#    - RollingUpdate: updates pods in reverse ordinal order
+#    - OnDelete: manual update by deleting pods
+#    - partition: only update pods with ordinal >= partition value

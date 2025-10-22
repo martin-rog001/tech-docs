@@ -1,0 +1,44 @@
+---
+# Terminate EC2 Instance
+# Run with: ansible-playbook terminate.yml
+
+- name: Terminate EC2 Instance
+  hosts: localhost
+  connection: local
+  gather_facts: no
+
+  vars:
+    aws_region: "us-east-1"
+    instance_name: "web-server"
+
+  tasks:
+    - name: Get instance information by name
+      amazon.aws.ec2_instance_info:
+        region: "{{ aws_region }}"
+        filters:
+          "tag:Name": "{{ instance_name }}"
+          "instance-state-name": ["running", "stopped"]
+      register: ec2_info
+
+    - name: Display instances to be terminated
+      debug:
+        msg: "Found {{ ec2_info.instances | length }} instance(s) with name {{ instance_name }}"
+
+    - name: Terminate EC2 instances
+      amazon.aws.ec2_instance:
+        instance_ids: "{{ item.instance_id }}"
+        region: "{{ aws_region }}"
+        state: absent
+        wait: yes
+      loop: "{{ ec2_info.instances }}"
+      when: ec2_info.instances | length > 0
+
+    - name: Confirm termination
+      debug:
+        msg: "Instance(s) terminated successfully"
+      when: ec2_info.instances | length > 0
+
+    - name: No instances found
+      debug:
+        msg: "No instances found with name {{ instance_name }}"
+      when: ec2_info.instances | length == 0

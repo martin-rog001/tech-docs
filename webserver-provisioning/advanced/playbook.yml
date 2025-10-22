@@ -1,0 +1,404 @@
+---
+# Advanced Webserver Provisioning Playbook
+# Complete production-ready NGINX setup with security, monitoring, and backups
+# Run with: ansible-playbook -i inventory.ini playbook.yml
+
+- name: Provision Web Server
+  hosts: webservers
+  become: yes
+  gather_facts: yes
+
+  vars:
+    # Server configuration
+    server_name: "example.com"
+    server_aliases:
+      - "www.example.com"
+
+    # Application user
+    app_user: "webadmin"
+    app_group: "webadmin"
+
+    # Web root
+    web_root: "/var/www/html"
+
+    # SSL configuration
+    enable_ssl: true
+    ssl_cert_path: "/etc/ssl/certs/{{ server_name }}.crt"
+    ssl_key_path: "/etc/ssl/private/{{ server_name }}.key"
+
+    # Firewall ports
+    allowed_ports:
+      - "22"    # SSH
+      - "80"    # HTTP
+      - "443"   # HTTPS
+
+    # PHP version (if needed)
+    enable_php: true
+    php_version: "8.1"
+
+    # Node.js (if needed)
+    enable_nodejs: false
+    nodejs_version: "18"
+
+  tasks:
+    # =====================
+    # System Setup
+    # =====================
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+      when: ansible_os_family == "Debian"
+
+    - name: Install essential packages
+      apt:
+        name:
+          - curl
+          - wget
+          - git
+          - vim
+          - ufw
+          - certbot
+          - python3-certbot-nginx
+          - software-properties-common
+          - apt-transport-https
+          - ca-certificates
+          - gnupg
+          - lsb-release
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: Set timezone
+      timezone:
+        name: UTC
+
+    # =====================
+    # User Setup
+    # =====================
+    - name: Create application group
+      group:
+        name: "{{ app_group }}"
+        state: present
+
+    - name: Create application user
+      user:
+        name: "{{ app_user }}"
+        group: "{{ app_group }}"
+        shell: /bin/bash
+        home: "/home/{{ app_user }}"
+        create_home: yes
+        state: present
+
+    - name: Add SSH key for application user
+      authorized_key:
+        user: "{{ app_user }}"
+        state: present
+        key: "{{ lookup('file', '~/.ssh/id_rsa.pub') }}"
+      when: lookup('file', '~/.ssh/id_rsa.pub', errors='ignore') is defined
+
+    # =====================
+    # NGINX Installation
+    # =====================
+    - name: Install NGINX
+      apt:
+        name: nginx
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: Start and enable NGINX
+      systemd:
+        name: nginx
+        state: started
+        enabled: yes
+
+    - name: Create web root directory
+      file:
+        path: "{{ web_root }}"
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
+        mode: '0755'
+
+    - name: Create NGINX configuration from template
+      template:
+        src: templates/nginx-site.conf.j2
+        dest: "/etc/nginx/sites-available/{{ server_name }}"
+        owner: root
+        group: root
+        mode: '0644'
+      notify: reload nginx
+
+    - name: Enable NGINX site
+      file:
+        src: "/etc/nginx/sites-available/{{ server_name }}"
+        dest: "/etc/nginx/sites-enabled/{{ server_name }}"
+        state: link
+      notify: reload nginx
+
+    - name: Disable default NGINX site
+      file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+      notify: reload nginx
+
+    - name: Test NGINX configuration
+      command: nginx -t
+      register: nginx_test
+      changed_when: false
+
+    # =====================
+    # PHP Installation (Optional)
+    # =====================
+    - name: Add PHP repository
+      apt_repository:
+        repo: "ppa:ondrej/php"
+        state: present
+      when:
+        - ansible_os_family == "Debian"
+        - enable_php | bool
+
+    - name: Install PHP and extensions
+      apt:
+        name:
+          - "php{{ php_version }}-fpm"
+          - "php{{ php_version }}-cli"
+          - "php{{ php_version }}-common"
+          - "php{{ php_version }}-mysql"
+          - "php{{ php_version }}-curl"
+          - "php{{ php_version }}-gd"
+          - "php{{ php_version }}-mbstring"
+          - "php{{ php_version }}-xml"
+          - "php{{ php_version }}-zip"
+        state: present
+      when: enable_php | bool
+
+    - name: Start and enable PHP-FPM
+      systemd:
+        name: "php{{ php_version }}-fpm"
+        state: started
+        enabled: yes
+      when: enable_php | bool
+
+    # =====================
+    # Node.js Installation (Optional)
+    # =====================
+    - name: Download NodeSource setup script
+      get_url:
+        url: "https://deb.nodesource.com/setup_{{ nodejs_version }}.x"
+        dest: /tmp/nodejs_setup.sh
+        mode: '0755'
+      when: enable_nodejs | bool
+
+    - name: Run NodeSource setup script
+      command: bash /tmp/nodejs_setup.sh
+      args:
+        creates: /etc/apt/sources.list.d/nodesource.list
+      when: enable_nodejs | bool
+
+    - name: Install Node.js
+      apt:
+        name: nodejs
+        state: present
+      when: enable_nodejs | bool
+
+    - name: Install PM2 process manager
+      npm:
+        name: pm2
+        global: yes
+        state: present
+      when: enable_nodejs | bool
+
+    # =====================
+    # SSL/TLS Setup
+    # =====================
+    - name: Create SSL directory
+      file:
+        path: /etc/ssl/private
+        state: directory
+        mode: '0700'
+      when: enable_ssl | bool
+
+    - name: Generate self-signed SSL certificate (for testing)
+      command: >
+        openssl req -x509 -nodes -days 365 -newkey rsa:2048
+        -keyout {{ ssl_key_path }}
+        -out {{ ssl_cert_path }}
+        -subj "/C=US/ST=State/L=City/O=Organization/CN={{ server_name }}"
+      args:
+        creates: "{{ ssl_cert_path }}"
+      when: enable_ssl | bool
+      notify: reload nginx
+
+    # For Let's Encrypt (uncomment when ready):
+    # - name: Obtain Let's Encrypt certificate
+    #   command: >
+    #     certbot --nginx -d {{ server_name }} -d www.{{ server_name }}
+    #     --non-interactive --agree-tos -m admin@{{ server_name }}
+    #   args:
+    #     creates: "/etc/letsencrypt/live/{{ server_name }}/fullchain.pem"
+    #   when: enable_ssl | bool
+
+    # =====================
+    # Firewall Setup
+    # =====================
+    - name: Enable UFW
+      ufw:
+        state: enabled
+        policy: deny
+
+    - name: Allow SSH through firewall
+      ufw:
+        rule: allow
+        port: "22"
+        proto: tcp
+
+    - name: Allow HTTP/HTTPS through firewall
+      ufw:
+        rule: allow
+        port: "{{ item }}"
+        proto: tcp
+      loop: "{{ allowed_ports }}"
+
+    - name: Set UFW logging
+      ufw:
+        logging: 'on'
+
+    # =====================
+    # Deploy Sample Website
+    # =====================
+    - name: Copy deployment script
+      template:
+        src: templates/deploy.sh.j2
+        dest: "/home/{{ app_user }}/deploy.sh"
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
+        mode: '0755'
+
+    - name: Create sample index.html
+      template:
+        src: templates/index.html.j2
+        dest: "{{ web_root }}/index.html"
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
+        mode: '0644'
+
+    - name: Create info.php (if PHP enabled)
+      copy:
+        content: "<?php phpinfo(); ?>"
+        dest: "{{ web_root }}/info.php"
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
+        mode: '0644'
+      when: enable_php | bool
+
+    # =====================
+    # Security Hardening
+    # =====================
+    - name: Copy security hardening script
+      copy:
+        src: scripts/security-hardening.sh
+        dest: /root/security-hardening.sh
+        mode: '0700'
+
+    - name: Run security hardening script
+      command: /root/security-hardening.sh
+      args:
+        creates: /root/.security-hardened
+
+    # =====================
+    # Monitoring Setup
+    # =====================
+    - name: Copy monitoring script
+      copy:
+        src: scripts/monitoring.sh
+        dest: /usr/local/bin/monitoring.sh
+        mode: '0755'
+
+    - name: Create monitoring cron job
+      cron:
+        name: "Server monitoring"
+        minute: "*/5"
+        job: "/usr/local/bin/monitoring.sh >> /var/log/monitoring.log 2>&1"
+        user: root
+
+    # =====================
+    # Backup Setup
+    # =====================
+    - name: Create backup directory
+      file:
+        path: /backup
+        state: directory
+        mode: '0700'
+
+    - name: Copy backup script
+      template:
+        src: templates/backup.sh.j2
+        dest: /usr/local/bin/backup.sh
+        mode: '0755'
+
+    - name: Create backup cron job
+      cron:
+        name: "Daily backup"
+        hour: "2"
+        minute: "0"
+        job: "/usr/local/bin/backup.sh >> /var/log/backup.log 2>&1"
+        user: root
+
+    # =====================
+    # Log Rotation
+    # =====================
+    - name: Configure logrotate for custom logs
+      copy:
+        content: |
+          /var/log/monitoring.log {
+              daily
+              rotate 7
+              compress
+              delaycompress
+              missingok
+              notifempty
+          }
+          /var/log/backup.log {
+              weekly
+              rotate 4
+              compress
+              delaycompress
+              missingok
+              notifempty
+          }
+        dest: /etc/logrotate.d/custom-logs
+        mode: '0644'
+
+    # =====================
+    # Final Checks
+    # =====================
+    - name: Display server information
+      debug:
+        msg:
+          - "Web server provisioning completed!"
+          - "Server: {{ server_name }}"
+          - "Web root: {{ web_root }}"
+          - "SSL enabled: {{ enable_ssl }}"
+          - "PHP enabled: {{ enable_php }}"
+          - "Node.js enabled: {{ enable_nodejs }}"
+          - "Access: http://{{ ansible_default_ipv4.address }}"
+
+  # =====================
+  # Handlers
+  # =====================
+  handlers:
+    - name: reload nginx
+      systemd:
+        name: nginx
+        state: reloaded
+
+    - name: restart nginx
+      systemd:
+        name: nginx
+        state: restarted
+
+    - name: restart php-fpm
+      systemd:
+        name: "php{{ php_version }}-fpm"
+        state: restarted
+      when: enable_php | bool

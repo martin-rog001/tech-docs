@@ -1,0 +1,139 @@
+# Kubernetes Service - Essential Syntax Reference
+apiVersion: v1
+kind: Service
+
+metadata:
+  name: web-app-service
+  namespace: production
+  labels:
+    app: web-app
+    tier: frontend
+  annotations:
+    description: "Web application service"
+
+spec:
+  # Service type
+  type: ClusterIP
+  # Options: ClusterIP, NodePort, LoadBalancer, ExternalName
+
+  # Selector to match pods
+  selector:
+    app: web-app
+    tier: frontend
+
+  # Ports
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80          # Service port
+      targetPort: 3000  # Container port (can be name or number)
+
+    - name: https
+      protocol: TCP
+      port: 443
+      targetPort: https
+
+  # Session affinity
+  sessionAffinity: ClientIP
+  # Options: None, ClientIP
+
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 3600
+
+---
+# NodePort Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-app-nodeport
+  namespace: production
+spec:
+  type: NodePort
+  selector:
+    app: web-app
+  ports:
+    - port: 80
+      targetPort: 3000
+      nodePort: 30080  # Optional: 30000-32767 range
+      protocol: TCP
+
+---
+# LoadBalancer Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-app-lb
+  namespace: production
+  annotations:
+    # Cloud provider specific annotations
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+spec:
+  type: LoadBalancer
+  selector:
+    app: web-app
+  ports:
+    - port: 80
+      targetPort: 3000
+      protocol: TCP
+
+  # External traffic policy
+  externalTrafficPolicy: Local
+  # Options: Cluster (default), Local
+
+  # Load balancer source ranges
+  loadBalancerSourceRanges:
+    - "10.0.0.0/8"
+    - "192.168.0.0/16"
+
+---
+# Headless Service (for StatefulSets)
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-app-headless
+  namespace: production
+spec:
+  clusterIP: None  # Makes it headless
+  selector:
+    app: web-app
+  ports:
+    - port: 80
+      targetPort: 3000
+
+---
+# ExternalName Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: external-service
+  namespace: production
+spec:
+  type: ExternalName
+  externalName: api.external-service.com
+  ports:
+    - port: 80
+
+---
+# Service without selector (manual endpoints)
+apiVersion: v1
+kind: Service
+metadata:
+  name: manual-service
+spec:
+  ports:
+    - port: 80
+      targetPort: 8080
+
+---
+# Endpoints for service without selector
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: manual-service
+subsets:
+  - addresses:
+      - ip: 192.168.1.100
+      - ip: 192.168.1.101
+    ports:
+      - port: 8080

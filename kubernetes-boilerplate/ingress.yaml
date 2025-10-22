@@ -1,0 +1,337 @@
+# Kubernetes Ingress - Essential Syntax Reference
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+
+metadata:
+  name: web-app-ingress
+  namespace: production
+  labels:
+    app: web-app
+
+  # Annotations for ingress controller configuration
+  annotations:
+    # Nginx ingress controller
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+
+    # CORS
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, PUT, DELETE, OPTIONS"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "*"
+
+    # Rate limiting
+    nginx.ingress.kubernetes.io/limit-rps: "100"
+
+    # Auth
+    nginx.ingress.kubernetes.io/auth-type: basic
+    nginx.ingress.kubernetes.io/auth-secret: basic-auth
+    nginx.ingress.kubernetes.io/auth-realm: "Authentication Required"
+
+    # Custom headers
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      more_set_headers "X-Custom-Header: CustomValue";
+
+    # Cert-manager (for TLS)
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+
+spec:
+  # Ingress class
+  ingressClassName: nginx
+
+  # TLS configuration
+  tls:
+    - hosts:
+        - example.com
+        - www.example.com
+      secretName: tls-secret
+
+    - hosts:
+        - api.example.com
+      secretName: api-tls-secret
+
+  # Routing rules
+  rules:
+    # Host-based routing
+    - host: example.com
+      http:
+        paths:
+          # Path-based routing
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: web-app-service
+                port:
+                  number: 80
+
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: api-service
+                port:
+                  name: http
+
+    - host: www.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: web-app-service
+                port:
+                  number: 80
+
+    - host: api.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: api-service
+                port:
+                  number: 8080
+
+          - path: /v2
+            pathType: Prefix
+            backend:
+              service:
+                name: api-v2-service
+                port:
+                  number: 8080
+
+  # Default backend (optional)
+  defaultBackend:
+    service:
+      name: default-backend
+      port:
+        number: 80
+
+---
+# Path types examples
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: path-types-example
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: example.com
+      http:
+        paths:
+          # Exact match: /api only
+          - path: /api
+            pathType: Exact
+            backend:
+              service:
+                name: api-exact
+                port:
+                  number: 80
+
+          # Prefix match: /api, /api/, /api/users, etc.
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: api-prefix
+                port:
+                  number: 80
+
+          # ImplementationSpecific: depends on ingress controller
+          - path: /special
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: special-service
+                port:
+                  number: 80
+
+---
+# Multiple services with URL rewriting
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: rewrite-example
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: example.com
+      http:
+        paths:
+          # /app/users -> /users
+          - path: /app(/|$)(.*)
+            pathType: Prefix
+            backend:
+              service:
+                name: app-service
+                port:
+                  number: 80
+
+---
+# Canary deployment with traffic splitting
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: canary-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/canary: "true"
+    nginx.ingress.kubernetes.io/canary-weight: "20"  # 20% traffic
+    # Alternative canary rules:
+    # nginx.ingress.kubernetes.io/canary-by-header: "x-canary"
+    # nginx.ingress.kubernetes.io/canary-by-cookie: "canary"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: web-app-v2
+                port:
+                  number: 80
+
+---
+# Ingress with authentication
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: auth-ingress
+  annotations:
+    # Basic auth
+    nginx.ingress.kubernetes.io/auth-type: basic
+    nginx.ingress.kubernetes.io/auth-secret: basic-auth
+    nginx.ingress.kubernetes.io/auth-realm: "Authentication Required"
+
+    # OAuth
+    # nginx.ingress.kubernetes.io/auth-url: "https://oauth.example.com/auth"
+    # nginx.ingress.kubernetes.io/auth-signin: "https://oauth.example.com/signin"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: secure.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: secure-service
+                port:
+                  number: 80
+
+---
+# Ingress with custom timeouts and buffers
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: custom-settings-ingress
+  annotations:
+    # Timeouts
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+
+    # Body size
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+
+    # Buffering
+    nginx.ingress.kubernetes.io/proxy-buffering: "on"
+    nginx.ingress.kubernetes.io/proxy-buffer-size: "8k"
+
+    # WebSocket support
+    nginx.ingress.kubernetes.io/websocket-services: "websocket-service"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: app-service
+                port:
+                  number: 80
+
+---
+# Fan-out pattern (multiple services under one domain)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: fanout-ingress
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: example.com
+      http:
+        paths:
+          - path: /web
+            pathType: Prefix
+            backend:
+              service:
+                name: web-service
+                port:
+                  number: 80
+
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: api-service
+                port:
+                  number: 8080
+
+          - path: /admin
+            pathType: Prefix
+            backend:
+              service:
+                name: admin-service
+                port:
+                  number: 3000
+
+---
+# Name-based virtual hosting (multiple domains)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: virtual-host-ingress
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - app1.example.com
+      secretName: app1-tls
+    - hosts:
+        - app2.example.com
+      secretName: app2-tls
+  rules:
+    - host: app1.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: app1-service
+                port:
+                  number: 80
+
+    - host: app2.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: app2-service
+                port:
+                  number: 80

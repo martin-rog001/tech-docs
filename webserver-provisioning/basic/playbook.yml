@@ -1,0 +1,79 @@
+---
+# Basic Webserver Provisioning Playbook
+# Demonstrates core Ansible concepts: variables, loops, conditionals, templates, handlers
+# Run with: ansible-playbook -i inventory.ini playbook.yml
+
+- name: Web Server Setup
+  hosts: webservers
+  become: yes
+  gather_facts: yes
+
+  vars:
+    # Variables
+    server_name: "example.com"
+    web_root: "/var/www/html"
+
+    # Package list
+    packages:
+      - nginx
+      - curl
+
+  tasks:
+    # Update system
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    # Loop example
+    - name: Install packages
+      apt:
+        name: "{{ item }}"
+        state: present
+      loop: "{{ packages }}"
+
+    # Service management
+    - name: Start and enable NGINX
+      systemd:
+        name: nginx
+        state: started
+        enabled: yes
+
+    # File operations
+    - name: Create web root directory
+      file:
+        path: "{{ web_root }}"
+        state: directory
+        mode: '0755'
+
+    # Template example
+    - name: Deploy website from template
+      template:
+        src: index.html.j2
+        dest: "{{ web_root }}/index.html"
+        mode: '0644'
+
+    # Copy example
+    - name: Copy deployment script
+      copy:
+        src: deploy.sh
+        dest: /root/deploy.sh
+        mode: '0755'
+
+    # Conditional example
+    - name: Allow HTTP through firewall
+      ufw:
+        rule: allow
+        port: '80'
+        proto: tcp
+      when: ansible_os_family == "Debian"
+
+    - name: Enable firewall
+      ufw:
+        state: enabled
+        policy: deny
+      when: ansible_os_family == "Debian"
+
+    # Debug example
+    - name: Display server information
+      debug:
+        msg: "Web server ready at http://{{ ansible_default_ipv4.address }}"
