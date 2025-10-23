@@ -1,0 +1,109 @@
+## 🧩 Systemd & Service Management
+
+| Command | Description |
+|----------|--------------|
+| `systemctl status` | Show overall systemd status |
+| `systemctl list-units --type=service` | List active services |
+| `systemctl list-unit-files --state=enabled` | Show enabled services |
+| `systemctl start <service>` | Start a service immediately |
+| `systemctl stop <service>` | Stop a running service |
+| `systemctl restart <service>` | Restart a service |
+| `systemctl reload <service>` | Reload service configuration (no restart) |
+| `systemctl enable <service>` | Enable service to start on boot |
+| `systemctl disable <service>` | Disable autostart for a service |
+| `systemctl is-enabled <service>` | Check if a service starts on boot |
+| `systemctl mask <service>` | Completely disable service (cannot start) |
+| `systemctl unmask <service>` | Re-enable a masked service |
+| `systemctl daemon-reload` | Reload unit files after editing them |
+| `systemctl show <service>` | Display all properties of a service |
+| `systemctl cat <service>` | Show service unit file definition |
+| `systemctl edit --full <service>` | Edit the full unit file |
+| `systemctl list-timers` | List all systemd timers (scheduled tasks) |
+| `systemctl enable --now <service>` | Enable and start service immediately |
+| `systemctl disable --now <service>` | Stop and disable service immediately |
+
+---
+
+### 🧠 Systemd Diagnostics & Boot Analysis
+
+| Command | Description |
+|----------|--------------|
+| `systemctl --failed` | Show failed units |
+| `journalctl -xe` | Show latest critical logs |
+| `journalctl -u <service>` | View logs for a specific service |
+| `journalctl -b` | Logs since last boot |
+| `journalctl -b -1` | Logs from previous boot |
+| `journalctl --disk-usage` | Show log storage usage |
+| `systemd-analyze` | Show total boot time |
+| `systemd-analyze blame` | List services by startup time |
+| `systemd-analyze critical-chain` | Display dependency boot order |
+| `loginctl list-sessions` | Show active user sessions |
+| `loginctl show-session <id>` | Inspect a specific session |
+| `hostnamectl` | View or change hostname and system info |
+| `localectl` | View or change system locale and keymap |
+| `timedatectl` | Manage system time, date, and NTP sync |
+
+---
+
+### 🧱 Writing & Managing Custom Unit Files
+
+| Command | Description |
+|----------|--------------|
+| `/etc/systemd/system/<name>.service` | System-wide custom service |
+| `~/.config/systemd/user/<name>.service` | Per-user service unit |
+| Example minimal unit: |
+| ```ini
+  [Unit]
+  Description=My Custom Service
+  After=network.target
+
+  [Service]
+  ExecStart=/usr/bin/mycommand --option
+  Restart=always
+
+  [Install]
+  WantedBy=multi-user.target
+  ``` |
+| `systemctl daemon-reload` | Reload unit files after creation/edit |
+| `systemctl enable --now myservice.service` | Enable and start custom service |
+| `systemctl status myservice.service` | Check its current state |
+
+---
+
+### 🧩 Systemd Timer Examples
+
+| Command | Description |
+|----------|--------------|
+| `systemctl list-timers --all` | List all timers (active & inactive) |
+| `/etc/systemd/system/backup.timer` | Timer unit definition |
+| ```ini
+  [Unit]
+  Description=Run Backup Daily
+
+  [Timer]
+  OnCalendar=daily
+  Persistent=true
+
+  [Install]
+  WantedBy=timers.target
+  ``` |
+| `/etc/systemd/system/backup.service` | Service triggered by timer |
+| ```ini
+  [Unit]
+  Description=Daily Backup
+
+  [Service]
+  Type=oneshot
+  ExecStart=/usr/local/bin/backup.sh
+  ``` |
+| `systemctl enable --now backup.timer` | Start and enable the timer |
+
+---
+
+💡 **Pro Tips:**
+- Use `systemd-analyze verify <unitfile>` to check syntax and dependencies.  
+- `journalctl -fu <service>` follows logs live (like `tail -f`).  
+- Per-user systemd units run via `systemctl --user`.
+
+---
+

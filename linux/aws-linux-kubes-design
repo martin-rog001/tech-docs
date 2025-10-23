@@ -1,0 +1,224 @@
+# Senior SRE Interview Preparation
+
+You’ll be tested on designing, maintaining, and improving reliable, scalable, and observable systems using AWS, Linux, Kubernetes, Redis, MySQL, and Postgres.
+
+---
+
+## 🧭 1. Core Areas to Master
+
+### 🐧 Linux Fundamentals & Operations
+
+You’ll be expected to:
+
+* Troubleshoot live systems (CPU/memory/disk/network issues).
+* Read logs effectively (`journalctl`, `dmesg`, `/var/log/*`).
+* Use performance tools: `top`, `htop`, `vmstat`, `iostat`, `sar`, `strace`, `lsof`, `netstat/ss`.
+* Understand process management, signals, ulimits, and cgroups.
+
+**Interview example questions:**
+
+* “A node is running slow — how do you debug it?”
+* “How would you find which process is using the most I/O?”
+
+### ☁️ AWS (Cloud Infrastructure)
+
+They’ll test design and troubleshooting, not just CLI knowledge.
+
+Focus on:
+
+* **Compute:** EC2, Auto Scaling Groups, Lambda (if relevant).
+* **Networking:** VPCs, subnets, route tables, NAT gateways, ALB/NLB.
+* **Storage:** EBS, S3, EFS.
+* **Databases:** RDS (MySQL/Postgres), ElastiCache (Redis).
+* **IAM:** roles, policies, least privilege.
+* **Monitoring:** CloudWatch metrics, alarms, dashboards, logs.
+* **IaC:** CloudFormation or Terraform.
+
+**Sample questions:**
+
+* “How would you design a multi-AZ HA setup for Postgres on AWS?”
+* “How do you handle a failing EC2 instance in an auto scaling group?”
+
+### ☸️ Kubernetes (K8s)
+
+They’ll expect you to know how to **operate** and **debug** K8s clusters.
+
+Focus on:
+
+* Core concepts: Pods, Deployments, ReplicaSets, Services, Ingress.
+* Networking: DNS, CNI, kube-proxy.
+* Troubleshooting: `kubectl describe`, `kubectl logs`, `kubectl exec`.
+* Scaling, health checks, rolling updates, resource requests/limits.
+* Managing stateful apps (e.g., Redis/Postgres via StatefulSets).
+* Helm, operators, and config management (ConfigMaps, Secrets).
+* Monitoring with Prometheus/Grafana, alerting.
+
+**Sample questions:**
+
+* “A pod is CrashLoopBackOff — how do you debug it?”
+* “How do you deploy and scale a stateful workload like Redis?”
+
+### 🧠 Databases (MySQL / Postgres / Redis)
+
+Focus on reliability and performance:
+
+* Backups, replication, failover.
+* Connection pooling, query performance, indexing.
+* Disk I/O and resource tuning.
+* Caching patterns with Redis (write-through, lazy loading).
+* Detecting slow queries and using EXPLAIN plans.
+
+**Sample questions:**
+
+* “What’s the difference between logical and physical replication?”
+* “How do you recover from a corrupted Redis snapshot?”
+
+### 📈 Observability & Reliability
+
+SREs are expected to measure and improve systems:
+
+* Metrics, logs, traces — Prometheus, Grafana, ELK/EFK stacks, OpenTelemetry.
+* SLIs/SLOs/SLAs — how to define and enforce them.
+* Alerting best practices (avoiding alert fatigue).
+* Incident response, postmortems, blameless culture.
+
+**Sample questions:**
+
+* “Define an SLO for a critical API and describe how you’d measure it.”
+* “How do you reduce MTTR after incidents?”
+
+### 🛠️ Automation, CI/CD, and Infrastructure as Code
+
+Expect to discuss:
+
+* CI/CD pipelines (GitHub Actions, Jenkins, GitLab CI, ArgoCD, etc.).
+* Terraform, Ansible, or similar.
+* Blue/green and canary deployments.
+* Immutable infrastructure, drift detection.
+
+**Sample questions:**
+
+* “How do you roll back a broken deployment safely?”
+* “Describe your approach to managing infrastructure drift.”
+
+### 💥 Incident & System Design Scenarios
+
+Scenario-based or on-call simulation questions:
+
+* “Redis latency is spiking — what’s your debugging process?”
+* “A deployment to Kubernetes caused 500 errors — how do you mitigate?”
+* “How do you ensure high availability for a database cluster in AWS?”
+
+Demonstrate:
+
+* Calm, structured debugging.
+* Clear prioritization (impact first).
+* Observability-driven troubleshooting.
+* Post-incident improvement mindset.
+
+---
+
+## 🧘‍♂️ 2. Sample Interview Answers
+
+### 🐧 Linux & Systems
+
+**Q1: A node is running slow — how do you debug it?**
+
+> Identify the type of slowness: CPU, memory, I/O, or network.
+>
+> * Use `uptime`, `top`, `vmstat`.
+> * Investigate processes (`pidstat`, `strace`, `perf`).
+> * Check memory (`free -h`, `dmesg`), disk (`iostat`, `iotop`), and network (`ss -tuna`, `iftop`).
+> * Fix the root cause (runaway process, swap thrashing) and confirm recovery.
+
+**Q2: Which process is using the most I/O?**
+
+> Use `iotop` or `pidstat -d`. If unavailable, inspect `/proc/[pid]/io`. Verify with `lsof -p <pid>`.
+
+---
+
+### ☁️ AWS
+
+**Q3: Multi-AZ HA setup for Postgres on AWS**
+
+> Use RDS with Multi-AZ for automatic failover, read replicas for scaling, backups for recovery, and private subnet access for security.
+
+**Q4: Failing EC2 instance in ASG**
+
+> ASG replaces unhealthy nodes. Review CloudWatch metrics, ensure idempotent user-data scripts, and investigate repeated failures.
+
+---
+
+### ☸️ Kubernetes
+
+**Q5: Pod in `CrashLoopBackOff`**
+
+> * Check events (`kubectl describe`), logs (`kubectl logs --previous`), probes, resource limits, and configs.
+
+**Q6: Deploying a stateful workload like Redis**
+
+> * Use StatefulSet + Headless Service, PVCs for storage, Sentinel/Operator for HA, replicas for reads, and liveness probes.
+
+---
+
+### 🧠 Databases
+
+**Q7: Logical vs Physical replication**
+
+> * Physical = WAL-level, fast, exact replica.
+> * Logical = SQL-level, flexible, supports upgrades.
+
+**Q8: Recovering from a corrupted Redis snapshot**
+
+> * Stop Redis, check with `redis-check-rdb`, repair or restore backup, identify cause, and automate backups.
+
+---
+
+### 📈 Observability
+
+**Q9: Define an SLO**
+
+> "99.9% of `/api/v1/orders` complete in <300ms." Measure via Prometheus metrics, define error budget, and alert when breached.
+
+**Q10: Reduce MTTR**
+
+> Improve observability, actionable alerts, runbooks, blameless postmortems, and auto-remediation.
+
+---
+
+### 🛠️ Automation & IaC
+
+**Q11: Roll back a broken deployment**
+
+> Pause rollout, undo deployment, verify recovery, update pipeline with smoke tests and canary deployment.
+
+**Q12: Managing infrastructure drift**
+
+> Use Terraform with remote state, CI checks (`terraform plan`), reconciliation tools, and policy-as-code.
+
+---
+
+### 💥 Incident & Design
+
+**Q13: Redis latency spikes**
+
+> Check Redis metrics, slow queries, blocking commands, system load, and network latency. Scale vertically or horizontally.
+
+**Q14: Kubernetes deployment caused 500 errors**
+
+> Roll back immediately, verify recovery, investigate logs/config changes, add canary/blue-green deployments.
+
+**Q15: Ensure HA for DB in AWS**
+
+> Use Multi-AZ, read replicas, RDS failover endpoints, automated backups, and monitor replication lag.
+
+---
+
+## 📘 3. Study Resources
+
+* **Linux:** [The Linux Command Line](https://linuxcommand.org/)
+* **AWS:** [AWS Well-Architected Framework](https://aws.amazon.com/architecture/well-architected/)
+* **Kubernetes:** *Kubernetes the Hard Way* by Kelsey Hightower
+* **Databases:** *High Performance MySQL*, *PostgreSQL Internals*
+* **Observability:** Google’s *SRE Workbook*
+* **Terraform:** [HashiCorp Learn Tutorials](https://learn.hashicorp.com/terraform)

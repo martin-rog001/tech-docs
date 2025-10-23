@@ -1,0 +1,202 @@
+# 🧠 Ultimate Advanced Linux Command Cheat Sheet (v2)
+
+A concise yet comprehensive guide for power users, sysadmins, and developers.  
+Covers system management, networking, monitoring, scripting, and more.
+
+---
+
+## ⚙️ Session Management & Persistence
+| Command | Description |
+|----------|--------------|
+| `screen` | Start a detachable terminal session (`screen -S name`) |
+| `screen -ls` | List running screen sessions |
+| `screen -r <session>` | Reattach to a screen session |
+| `tmux` | Modern alternative to `screen` (terminal multiplexer) |
+| `tmux new -s name` | Create a new tmux session |
+| `tmux attach -t name` | Attach to a tmux session |
+| `nohup command & disown` | Run command immune to hangups |
+| `setsid command` | Run process in a new session (no controlling terminal) |
+
+---
+
+## 🧩 Package, System & Kernel Tools
+| Command | Description |
+|----------|--------------|
+| `apt-cache policy pkg` | Show repository and version info |
+| `dpkg -L pkg` | List installed package files |
+| `dpkg -S /path/to/file` | Find which package owns a file |
+| `rpm -qf /path/to/file` | RPM equivalent of above |
+| `lsmod` | List kernel modules |
+| `modprobe <module>` | Load kernel module dynamically |
+| `modinfo <module>` | Display module information |
+| `uname -a` | Kernel version and architecture |
+| `lsb_release -a` | Display distribution details |
+| `sysctl -a` | View and tune kernel parameters |
+
+---
+
+## 🔥 Networking, Firewall & Security
+| Command | Description |
+|----------|--------------|
+| `ip link set eth0 down` | Bring interface down |
+| `ip route show` | Display routing table |
+| `ss -tulwn` | Show open ports (replacement for `netstat -tuln`) |
+| `nmap -sS <ip>` | Stealth scan (root required) |
+| `traceroute <host>` | Show network path |
+| `mtr <host>` | Real-time traceroute + ping |
+| `iptables -L -v -n` | List current firewall rules |
+| `iptables -A INPUT -p tcp --dport 22 -j DROP` | Block SSH port (example) |
+| `ufw status` / `ufw allow <port>` | Simple firewall configuration |
+| `tcpdump -i eth0 port 80` | Capture packets for analysis |
+| `curl ifconfig.me` | Show public IP address |
+| `netcat -lvp 4444` | Listen for incoming TCP connections |
+| `nc <host> <port>` | Simple TCP client |
+| `nethogs` | Show per-process network usage |
+| `arp -n` | Show ARP table |
+
+---
+
+## 🧮 Process & Performance
+| Command | Description |
+|----------|--------------|
+| `pidstat -p <pid> 1` | Monitor CPU usage by process |
+| `nice -n 10 command` | Run command with lower CPU priority |
+| `renice -n 5 -p <pid>` | Adjust priority of running process |
+| `ionice -c2 -n7 <cmd>` | Set I/O priority |
+| `ps -eo pid,comm,lstart,etime,%mem,%cpu` | Detailed process snapshot |
+| `top -H -p <pid>` | Show threads of a process |
+| `watch -n 2 "df -h"` | Repeatedly execute a command every 2s |
+
+---
+
+## 💾 Disk, File, and Storage Power Tools
+| Command | Description |
+|----------|--------------|
+| `lsblk -f` | Display block devices and filesystems |
+| `blkid` | Identify block device UUIDs |
+| `fdisk -l` / `parted -l` | List partitions |
+| `mkfs.ext4 /dev/sdb1` | Create ext4 filesystem |
+| `tune2fs -l /dev/sda1` | Show filesystem parameters |
+| `mount -o remount,rw /` | Remount filesystem as read-write |
+| `inotifywait -m /path` | Watch for file changes |
+| `df -hT` | Disk usage with filesystem type |
+| `du -sh * | sort -hr | head -20` | Top 20 largest directories/files |
+| `fuser -v /mnt/data` | Show which processes use a mount point |
+| `lsof +D /path` | List open files under a directory |
+
+---
+
+## 🧠 Data Processing & CLI Power Moves
+| Command | Description |
+|----------|--------------|
+| `awk '/error/{count++} END{print count}' logfile` | Count occurrences |
+| `awk '{sum+=$2} END{print sum}' file` | Sum numeric column |
+| `sed -n '10,20p' file` | Print specific lines (10–20) |
+| `grep -E "pattern1|pattern2"` | Regex OR search |
+| `cut -d: -f1,7 /etc/passwd` | Extract username and shell |
+| `paste file1 file2` | Merge lines side-by-side |
+| `column -t file.txt` | Align text in columns |
+| `sort -t, -k3,3 -n` | Sort CSV by 3rd column numerically |
+| `comm file1 file2` | Compare sorted files |
+| `diff -u file1 file2` | Unified diff format |
+| `hexdump -C file` | View file in hex + ASCII |
+
+---
+
+## 📦 Archiving & Backups
+| Command | Description |
+|----------|--------------|
+| `tar -czf backup.tar.gz dir/` | Compress directory |
+| `tar -tzf backup.tar.gz` | List contents |
+| `gzip -9 file` / `gunzip file.gz` | Compress/uncompress single file |
+| `rsync -aAXHv --exclude={"/dev/*","/proc/*"} / /mnt/backup` | System backup (with exclusions) |
+| `dd if=/dev/sda of=/dev/sdb bs=64K conv=noerror,sync` | Clone a disk |
+| `pv file.iso | dd of=/dev/sdb bs=4M` | Show progress while writing image |
+
+---
+
+## 🧾 System Info, Debugging & Audit
+| Command | Description |
+|----------|--------------|
+| `dmidecode -t system` | Hardware info (BIOS, manufacturer, etc.) |
+| `lshw -short` | Summary of hardware |
+| `lscpu` | CPU architecture details |
+| `lsusb` | USB devices |
+| `lspci` | PCI devices |
+| `uptime -p` | Pretty system uptime |
+| `who -b` | Last system boot time |
+| `last -x` | Show reboot and shutdown logs |
+| `sar -n DEV 1 5` | Network traffic stats |
+| `dmesg | grep -i error` | Filter kernel errors |
+| `journalctl -b -1` | Logs from previous boot |
+
+---
+
+## ⏰ Automation, Jobs & Scheduling
+| Command | Description |
+|----------|--------------|
+| `crontab -e` | Edit user cron jobs |
+| `crontab -l` | List current cron jobs |
+| `systemctl list-timers` | Show active systemd timers |
+| `at now + 5 minutes` | Schedule one-time task |
+| `anacron` | Run cron jobs that were missed |
+| `watch -n 10 command` | Repeat a command periodically |
+| `timeout 5 command` | Run command with time limit |
+
+---
+
+## 🧱 Containers, DevOps, and Virtualization
+| Command | Description |
+|----------|--------------|
+| `docker ps -a` | List containers |
+| `docker exec -it <container> /bin/bash` | Enter running container |
+| `docker system prune` | Clean up unused containers/images |
+| `podman ps` | Docker alternative (rootless) |
+| `vagrant up` / `vagrant ssh` | Launch and connect to VM |
+| `ansible -m ping all -i inventory.ini` | Test Ansible connectivity |
+| `kubectl get pods -A` | List all Kubernetes pods |
+| `virt-manager` | GUI VM management |
+| `virsh list --all` | Manage KVM-based VMs |
+
+---
+
+## 🧨 Miscellaneous Pro Tricks
+| Command | Description |
+|----------|--------------|
+| `history | grep <keyword>` | Search your command history |
+| `alias | grep <name>` | Find defined aliases |
+| `fc -l` | Show and re-edit command history |
+| `export HISTCONTROL=ignoredups` | Ignore duplicates in bash history |
+| `time command` | Measure execution time |
+| `date -u` | Show UTC time |
+| `cal -3` | Show 3-month calendar |
+| `rev` | Reverse lines of text |
+| `tldr <command>` | Simplified man page summary (install via `pip`) |
+| `yes "test" | head -n 5` | Generate repeated output quickly |
+| `uuidgen` | Generate random UUIDs |
+
+---
+
+## ⚡ Bonus Tools for Modern Linux Power Users
+| Tool | Description |
+|------|--------------|
+| `fzf` | Fuzzy finder for files and command history |
+| `ripgrep (rg)` | Fast recursive text search |
+| `bat` | Syntax-highlighted `cat` alternative |
+| `exa` | Modern replacement for `ls` |
+| `btop` | Beautiful resource monitor |
+| `fd` | Fast `find` replacement |
+| `ncdu` | TUI disk usage analyzer |
+| `glances` | Comprehensive system monitor |
+| `tokei` | Count lines of code by language |
+
+---
+
+> 💡 **Tip:** Combine commands creatively — e.g.  
+> `ps aux | grep nginx | awk '{print $2}' | xargs kill -9`  
+> or  
+> `find . -type f -print0 | xargs -0 du -ch | sort -rh | head -20`
+
+---
+
+**Made for Linux enthusiasts, sysadmins, and DevOps engineers.**
